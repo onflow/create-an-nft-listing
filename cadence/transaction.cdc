@@ -7,41 +7,48 @@ import FungibleToken from 0x01
 // by publishing a Vault reference and creating an empty NFT Collection.
 transaction {
 
+    // Reference to the NFTStorefront.Storefront resource.
     let storefront: &NFTStorefront.Storefront 
 
+    // Capability for the ExampleNFT.Collection, allowing NFT interactions.
     let exampleNFTProvider: Capability<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>
 
+    // Capability for the FungibleToken.Vault, allowing token interactions.
     let tokenReceiver: Capability<&FungibleToken.Vault{FungibleToken.Receiver}>
     
-    prepare(acct: AuthAccount) {
-    
-        self.storefront = acct.borrow<&NFTStorefront.Storefront>(from: NFTStorefront.StorefrontStoragePath) ?? panic("can't borrow storefront")
+    prepare(signer: auth(Storage, Capabilities) &Account) {
+        // Borrow the storefront reference.
+        self.storefront = signer.storage.borrow<&NFTStorefront.Storefront>(at: NFTStorefront.StorefrontStoragePath)
+            ?? panic("Cannot borrow storefront")
 
-        if acct.getCapability<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(ExampleNFT.CollectionPrivatePath).check() == false {
-            acct.link<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(ExampleNFT.CollectionPrivatePath, target: ExampleNFT.CollectionStoragePath)
+        // Check and link the ExampleNFT.Collection capability if it doesn't exist.
+        if signer.capabilities.storage.get<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(at: ExampleNFT.CollectionPrivatePath).check() == false {
+            signer.capabilities.storage.issue<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(ExampleNFT.CollectionPrivatePath, target: ExampleNFT.CollectionStoragePath)
         }
 
-        self.exampleNFTProvider = acct.getCapability<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(ExampleNFT.CollectionPrivatePath)!
+        // Retrieve the ExampleNFT.Collection capability.
+        self.exampleNFTProvider = signer.capabilities.storage.get<&ExampleNFT.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(at: ExampleNFT.CollectionPrivatePath)!
         assert(self.exampleNFTProvider.borrow() != nil, message: "Missing or mis-typed ExampleNFT.Collection provider")
 
-
-        self.tokenReceiver = acct.getCapability<&FungibleToken.Vault{FungibleToken.Receiver}>(/public/MainReceiver)!
+        // Retrieve the FungibleToken.Vault receiver capability.
+        self.tokenReceiver = signer.capabilities.get<&FungibleToken.Vault{FungibleToken.Receiver}>(/public/MainReceiver)!
         assert(self.tokenReceiver.borrow() != nil, message: "Missing or mis-typed FlowToken receiver")
 
+        // Define a SaleCut with the token receiver and amount.
         let saleCut = NFTStorefront.SaleCut(
             receiver: self.tokenReceiver,
             amount: 10.0
         )
 
+        // Create a new listing in the storefront.
         self.storefront.createListing(
             nftProviderCapability: self.exampleNFTProvider, 
             nftType: Type<@NonFungibleToken.NFT>(), 
             nftID: 0, 
             salePaymentVaultType: Type<@FungibleToken.Vault>(), 
             saleCuts: [saleCut]
-            )
+        )
 
-        log("storefront listing created")
+        log("Storefront listing created")
     }
 }
-
