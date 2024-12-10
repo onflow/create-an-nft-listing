@@ -6,16 +6,14 @@ import "ExampleNFT"
 transaction {
     let storefront: auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront
     let exampleNFTProvider: Capability<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>
-    let tokenReceiver: Capability<&{FungibleToken.Receiver}>
-    
+    let tokenReceiver: Capability<&{FungibleToken.Receiver}> // Updated to store Capability
+
     prepare(signer: auth(Storage, Capabilities) &Account) {
         log("Checking if a storefront resource exists...")
 
-        // Check if the resource exists
         if signer.storage.borrow<&NFTStorefront.Storefront>(from: NFTStorefront.StorefrontStoragePath) != nil {
             log("Existing storefront resource found. Destroying it...")
             
-            // Remove the resource from storage
             let oldStorefront <- signer.storage.load<@NFTStorefront.Storefront>(
                 from: NFTStorefront.StorefrontStoragePath
             ) ?? panic("Failed to load existing storefront resource for deletion.")
@@ -23,12 +21,10 @@ transaction {
             log("Existing storefront resource destroyed.")
         }
 
-        // Create a new storefront resource
         log("Creating a new storefront resource...")
         let newStorefront <- NFTStorefront.createStorefront()
         log("New storefront resource created.")
 
-        // Save the resource to storage
         log("Saving the new storefront resource to storage...")
         signer.storage.save(
             <-newStorefront,
@@ -36,15 +32,13 @@ transaction {
         )
         log("New storefront resource successfully saved to storage.")
 
-        // Issue and publish the public capability
-        log("Publishing the new storefront capability (non-auth)...")
+        log("Publishing the new storefront capability...")
         let publicStorefrontCapability = signer.capabilities.storage.issue<&NFTStorefront.Storefront>(
             NFTStorefront.StorefrontStoragePath
         )
         signer.capabilities.publish(publicStorefrontCapability, at: NFTStorefront.StorefrontPublicPath)
         log("New public storefront capability issued and published successfully.")
 
-        // Validate the resource in storage
         log("Validating the stored storefront resource...")
         let privateStorefrontCap = signer.capabilities.storage.issue<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
             NFTStorefront.StorefrontStoragePath
@@ -53,7 +47,7 @@ transaction {
             ?? panic("Cannot borrow storefront resource with auth capability")
         log("Successfully borrowed the new storefront resource with auth capability.")
 
-        // Ensure the ExampleNFT Collection capability is published
+        log("Retrieving ExampleNFT Collection capability...")
         if signer.capabilities.get<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
             ExampleNFT.CollectionPublicPath
         ) == nil {
@@ -64,25 +58,30 @@ transaction {
             log("ExampleNFT Collection capability issued and published.")
         }
 
-        // Retrieve and verify the ExampleNFT Collection capability
         let nftProviderCap = signer.capabilities.get<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
             ExampleNFT.CollectionPublicPath
         )
         self.exampleNFTProvider = nftProviderCap
 
-        // Retrieve and verify the FungibleToken receiver capability
+        log("Retrieving FungibleToken receiver capability...")
+
+
         let tokenReceiverCap = signer.capabilities.get<&{FungibleToken.Receiver}>(
             /public/MainReceiver
         )
+        assert(tokenReceiverCap != nil, message: "FungibleToken receiver capability not found.")
+        log("FungibleToken receiver capability retrieved successfully.")
         self.tokenReceiver = tokenReceiverCap
-
-        // Create a sale cut
+        log("Borrowing the FungibleToken receiver reference...")
+        let receiverRef = self.tokenReceiver.borrow()
+            ?? panic("Cannot borrow FungibleToken receiver capability")
+        log("Successfully borrowed FungibleToken receiver reference.")
+        
         let saleCut = NFTStorefront.SaleCut(
-            receiver: self.tokenReceiver,
+            receiver: self.tokenReceiver, // Pass the Capability directly
             amount: 10.0
         )
 
-        // Create the listing
         let listingID = self.storefront.createListing(
             nftProviderCapability: self.exampleNFTProvider,
             nftType: Type<@{NonFungibleToken.NFT}>(),
