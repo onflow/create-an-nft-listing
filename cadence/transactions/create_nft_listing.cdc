@@ -9,33 +9,49 @@ transaction {
     let tokenReceiver: Capability<&{FungibleToken.Receiver}>
     
     prepare(signer: auth(Storage, Capabilities) &Account) {
-        // Check if a storefront exists
-        if signer.capabilities.get<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
-            NFTStorefront.StorefrontPublicPath
-        ) == nil {
-            // Create and save a new storefront resource
-            signer.storage.save(
-                <-NFTStorefront.createStorefront(),
-                to: NFTStorefront.StorefrontStoragePath
-            )
+        log("Checking if a storefront resource exists...")
 
-            // Issue and publish the storefront capability
-            let storefrontCapability = signer.capabilities.storage.issue<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
-                NFTStorefront.StorefrontStoragePath
-            )
-            signer.capabilities.publish(storefrontCapability, at: NFTStorefront.StorefrontPublicPath)
-
-            log("Storefront created and capability published.")
+        // Check if the resource exists
+        if signer.storage.borrow<&NFTStorefront.Storefront>(from: NFTStorefront.StorefrontStoragePath) != nil {
+            log("Existing storefront resource found. Destroying it...")
+            
+            // Remove the resource from storage
+            let oldStorefront <- signer.storage.load<@NFTStorefront.Storefront>(
+                from: NFTStorefront.StorefrontStoragePath
+            ) ?? panic("Failed to load existing storefront resource for deletion.")
+            destroy oldStorefront
+            log("Existing storefront resource destroyed.")
         }
 
-        // Retrieve the storefront capability with the correct entitlement
-        let storefrontCap = signer.capabilities.get<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
-            NFTStorefront.StorefrontPublicPath
+        // Create a new storefront resource
+        log("Creating a new storefront resource...")
+        let newStorefront <- NFTStorefront.createStorefront()
+        log("New storefront resource created.")
+
+        // Save the resource to storage
+        log("Saving the new storefront resource to storage...")
+        signer.storage.save(
+            <-newStorefront,
+            to: NFTStorefront.StorefrontStoragePath
         )
-        
-        // Borrow the resource from the capability
-        self.storefront = storefrontCap.borrow()
-            ?? panic("Cannot borrow storefront resource")
+        log("New storefront resource successfully saved to storage.")
+
+        // Issue and publish the public capability
+        log("Publishing the new storefront capability (non-auth)...")
+        let publicStorefrontCapability = signer.capabilities.storage.issue<&NFTStorefront.Storefront>(
+            NFTStorefront.StorefrontStoragePath
+        )
+        signer.capabilities.publish(publicStorefrontCapability, at: NFTStorefront.StorefrontPublicPath)
+        log("New public storefront capability issued and published successfully.")
+
+        // Validate the resource in storage
+        log("Validating the stored storefront resource...")
+        let privateStorefrontCap = signer.capabilities.storage.issue<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
+            NFTStorefront.StorefrontStoragePath
+        )
+        self.storefront = privateStorefrontCap.borrow()
+            ?? panic("Cannot borrow storefront resource with auth capability")
+        log("Successfully borrowed the new storefront resource with auth capability.")
 
         // Ensure the ExampleNFT Collection capability is published
         if signer.capabilities.get<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
@@ -45,6 +61,7 @@ transaction {
                 ExampleNFT.CollectionStoragePath
             )
             signer.capabilities.publish(issuedCapability, at: ExampleNFT.CollectionPublicPath)
+            log("ExampleNFT Collection capability issued and published.")
         }
 
         // Retrieve and verify the ExampleNFT Collection capability
