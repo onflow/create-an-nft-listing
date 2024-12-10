@@ -1,7 +1,5 @@
-Here we are defining initially the types that we are expected to return for each of the listed variables.
+First, we define the types that are expected to be returned for each of the variables used in the transaction. The process starts by borrowing the storefront resource from the account that contains it. This step ensures that the storefront has the necessary permissions to manage NFT listings. Next, we retrieve the capability to withdraw NFTs from the account, which allows the storefront to withdraw the specific NFT of the correct type when it is sold.
 
-Firstly we borrow the storefront from the account that contains a storefront in it. Afterwards we need to get the capability to withdraw NFTS from the account so that the storefront can withdraw the correct NFT of the correct Type.
+Next, we acquire the Vault receiver capability, which is crucial for setting up the SaleCut structure. This ensures that the specified vault will receive its designated portion of the proceeds from the NFT sale. 
 
-After that, we'll also get the Vault receiver capability so that it can be included in the sales cut struct. That way when it's time to pay out the earnings from the NFT, this vault will receive its cut.
-
-Once that's all done, we take self.storefront and call the createListing function and pass in all the parameters need. Then we execute the transaction.
+Once all these preparations are complete, we use the self.storefront reference to call the createListing function, passing in all the required parameters, including the NFT provider capability, NFT type, NFT ID, payment vault type, and the list of sale cuts. This step creates the listing on the storefront. Finally, the transaction is executed, and a log message confirms that the storefront listing was successfully created with its corresponding ID.
