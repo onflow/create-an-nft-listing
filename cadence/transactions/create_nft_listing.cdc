@@ -76,6 +76,8 @@ transaction {
             amount: 10.0
         )
 
+        log(self.exampleNFTProvider)
+
         let listingID = self.storefront.createListing(
             nftProviderCapability: self.exampleNFTProvider,
             nftType: Type<@ExampleNFT.NFT>(),
