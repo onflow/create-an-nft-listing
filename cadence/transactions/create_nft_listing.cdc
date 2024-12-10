@@ -9,6 +9,25 @@ transaction {
     let tokenReceiver: Capability<&{FungibleToken.Receiver}>
     
     prepare(signer: auth(Storage, Capabilities) &Account) {
+        // Check if a storefront exists
+        if signer.capabilities.get<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
+            NFTStorefront.StorefrontPublicPath
+        ) == nil {
+            // Create and save a new storefront resource
+            signer.storage.save(
+                <-NFTStorefront.createStorefront(),
+                to: NFTStorefront.StorefrontStoragePath
+            )
+
+            // Issue and publish the storefront capability
+            let storefrontCapability = signer.capabilities.storage.issue<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
+                NFTStorefront.StorefrontStoragePath
+            )
+            signer.capabilities.publish(storefrontCapability, at: NFTStorefront.StorefrontPublicPath)
+
+            log("Storefront created and capability published.")
+        }
+
         // Retrieve the storefront capability with the correct entitlement
         let storefrontCap = signer.capabilities.get<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
             NFTStorefront.StorefrontPublicPath
