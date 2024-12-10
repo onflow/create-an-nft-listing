@@ -1,7 +1,6 @@
  access(all) contract NFTStorefront {
 
     // More NFTStorefront contract code above
-    ....
 
     // SaleCut struct represents the distribution of payments in a sale.
     access(all) struct SaleCut {
@@ -115,7 +114,7 @@
         // This will assert in the same way as the NFT standard borrowNFT()
         // if the NFT is absent, for example if it has been sold via another listing.
         //
-        pub fun borrowNFT(): &NonFungibleToken.NFT {
+        access(all) fun borrowNFT(): &NonFungibleToken.NFT {
             let ref = self.nftProviderCapability.borrow()!.borrowNFT(id: self.getDetails().nftID)
             assert(ref.isInstance(self.getDetails().nftType), message: "token has wrong type")
             assert(ref.id == self.getDetails().nftID, message: "token has wrong ID")
@@ -125,7 +124,7 @@
         // Purchase the listing, buying the token.
         // This pays the beneficiaries and returns the token to the buyer.
         //
-        pub fun purchase(payment: @FungibleToken.Vault): @NonFungibleToken.NFT {
+        access(all) fun purchase(payment: @FungibleToken.Vault): @NonFungibleToken.NFT {
             pre {
                 self.details.purchased == false: "listing has already been purchased"
                 payment.isInstance(self.details.salePaymentVaultType): "payment vault is not requested fungible token"
@@ -174,23 +173,6 @@
             return <-nft
         }
 
-        // Destructor for the Listing resource.
-        //
-        destroy() {
-            // If the listing has not been purchased, we regard it as completed here.
-            // Otherwise, we regard it as completed in purchase().
-            // This is because we destroy the listing in Storefront.removeListing()
-            // or Storefront.cleanup().
-            // If we change this destructor, revisit those functions.
-            if !self.details.purchased {
-                emit ListingCompleted(
-                    listingResourceID: self.uuid,
-                    storefrontResourceID: self.details.storefrontID,
-                    purchased: self.details.purchased
-                )
-            }
-        }
-
         // Initializer for the Listing resource.
         //
         init(
@@ -225,5 +207,4 @@
     }
 
      // More NFTStorefront contract code below
-    ....
 }
