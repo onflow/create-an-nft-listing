@@ -9,11 +9,11 @@ transaction {
     let tokenReceiver: Capability<&{FungibleToken.Receiver}>
     
     prepare(signer: auth(Storage, Capabilities) &Account) {
-        // Retrieve the storefront capability using the public path
+        // Retrieve the storefront capability
         let storefrontCap = signer.capabilities.get<&NFTStorefront.Storefront>(
             NFTStorefront.StorefrontPublicPath
-        ) ?? panic("Cannot find storefront capability")
-
+        )
+        
         // Borrow the resource from the capability
         self.storefront = storefrontCap.borrow()
             ?? panic("Cannot borrow storefront resource")
@@ -31,13 +31,13 @@ transaction {
         // Retrieve and verify the ExampleNFT Collection capability
         let nftProviderCap = signer.capabilities.get<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
             ExampleNFT.CollectionPublicPath
-        ) ?? panic("Missing or mis-typed ExampleNFT.Collection capability")
+        )
         self.exampleNFTProvider = nftProviderCap
 
         // Retrieve and verify the FungibleToken receiver capability
         let tokenReceiverCap = signer.capabilities.get<&{FungibleToken.Receiver}>(
             /public/MainReceiver
-        ) ?? panic("Missing or mis-typed FlowToken receiver")
+        )
         self.tokenReceiver = tokenReceiverCap
 
         // Create a sale cut
