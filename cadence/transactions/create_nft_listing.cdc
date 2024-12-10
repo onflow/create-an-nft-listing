@@ -1,53 +1,61 @@
 import "NFTStorefront"
 import "NonFungibleToken"
-import "ExampleNFT"
 import "FungibleToken"
+import "ExampleNFT"
+
 
 transaction {
-
-    // Reference to the NFTStorefront.Storefront resource.
-    let storefront: &NFTStorefront.Storefront 
-
-    // Capability for the ExampleNFT.Collection, allowing NFT interactions.
-    let exampleNFTProvider: Capability<&ExampleNFT.Collection>
-
-    // Capability for the FungibleToken.Vault, allowing token interactions.
-    let tokenReceiver: Capability<&FungibleToken.Vault>
+    let storefront: auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront
+    let exampleNFTProvider: Capability<&{ExampleNFT.CollectionInterface}>
+    let tokenReceiver: Capability<&{FungibleToken.Receiver}>
     
     prepare(signer: auth(Storage, Capabilities) &Account) {
-        // Borrow the storefront reference.
-        self.storefront = signer.storage.borrow<&NFTStorefront.Storefront>(at: NFTStorefront.StorefrontStoragePath)
-            ?? panic("Cannot borrow storefront")
+        // Retrieve the storefront capability
+        let storefrontCap = signer.capabilities.get<&NFTStorefront.Storefront>(
+            NFTStorefront.StorefrontStoragePath
+        )
 
-        // Check and link the ExampleNFT.Collection capability if it doesn't exist.
-        if signer.capabilities.storage.get<&ExampleNFT.Collection>(at: ExampleNFT.CollectionPrivatePath).check() == false {
-            let cap = signer.capabilities.storage.issue<&ExampleNFT.Collection>(ExampleNFT.CollectionPrivatePath, target: ExampleNFT.CollectionStoragePath)
-            signer.capabilities.publish(cap, at: ExampleNFT.CollectionPublicPath)
+        // Borrow the resource from the capability
+        self.storefront = storefrontCap.borrow()
+            ?? panic("Cannot borrow storefront resource")
+
+        // Ensure the ExampleNFT Collection capability is published
+        if signer.capabilities.get<&{ExampleNFT.CollectionInterface}>(
+            ExampleNFT.CollectionPublicPath
+        ) == nil {
+            let issuedCapability = signer.capabilities.storage.issue<&ExampleNFT.Collection>(
+                ExampleNFT.CollectionStoragePath
+            )
+            signer.capabilities.publish(issuedCapability, at: ExampleNFT.CollectionPublicPath)
         }
 
-        // Retrieve the ExampleNFT.Collection capability.
-        self.exampleNFTProvider = signer.capabilities.storage.get<&ExampleNFT.Collection>(at: ExampleNFT.CollectionPrivatePath)!
-        assert(self.exampleNFTProvider.borrow() != nil, message: "Missing or mis-typed ExampleNFT.Collection provider")
+        // Retrieve and verify the ExampleNFT Collection capability
+        let nftProviderCap = signer.capabilities.get<&{ExampleNFT.CollectionInterface}>(
+            ExampleNFT.CollectionPublicPath
+        )
+        self.exampleNFTProvider = nftProviderCap
 
-        // Retrieve the FungibleToken.Vault receiver capability.
-        self.tokenReceiver = signer.capabilities.get<&FungibleToken.Vault>(/public/MainReceiver)!
-        assert(self.tokenReceiver.borrow() != nil, message: "Missing or mis-typed FlowToken receiver")
+        // Retrieve and verify the FungibleToken receiver capability
+        let tokenReceiverCap = signer.capabilities.get<&{FungibleToken.Receiver}>(
+            /public/MainReceiver
+        )
+        self.tokenReceiver = tokenReceiverCap
 
-        // Define a SaleCut with the token receiver and amount.
+        // Create a sale cut
         let saleCut = NFTStorefront.SaleCut(
             receiver: self.tokenReceiver,
             amount: 10.0
         )
 
-        // Create a new listing in the storefront.
-        self.storefront.createListing(
-            nftProviderCapability: self.exampleNFTProvider, 
-            nftType: Type<@NonFungibleToken.NFT>(), 
-            nftID: 0, 
-            salePaymentVaultType: Type<@FungibleToken.Vault>(), 
+        // Create the listing
+        let listingID = self.storefront.createListing(
+            nftProviderCapability: self.exampleNFTProvider,
+            nftType: Type<@ExampleNFT.NFT>(),
+            nftID: 1,
+            salePaymentVaultType: Type<@FungibleToken.Vault>(),
             saleCuts: [saleCut]
         )
 
-        log("Storefront listing created")
+        log("Storefront listing created with ID: ".concat(listingID.toString()))
     }
 }
