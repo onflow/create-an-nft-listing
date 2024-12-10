@@ -9,8 +9,8 @@ transaction {
     let tokenReceiver: Capability<&{FungibleToken.Receiver}>
     
     prepare(signer: auth(Storage, Capabilities) &Account) {
-        // Retrieve the storefront capability
-        let storefrontCap = signer.capabilities.get<&NFTStorefront.Storefront>(
+        // Retrieve the storefront capability with the correct entitlement
+        let storefrontCap = signer.capabilities.get<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
             NFTStorefront.StorefrontPublicPath
         )
         
