@@ -3,12 +3,8 @@ import "NonFungibleToken"
 import "ExampleNFT"
 import "NFTStorefront"
 
-
 transaction {
-    let paymentVault: @{FungibleToken.Vault}
-    let exampleNFTCollection: &ExampleNFT.Collection
     let storefront: auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront
-    let listing: &{NFTStorefront.ListingPublic}
 
      prepare(acct: auth(Storage, Capabilities, NFTStorefront.CreateListing) &Account) {
 
