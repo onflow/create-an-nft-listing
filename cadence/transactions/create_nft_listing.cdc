@@ -1,91 +1,85 @@
-import "NFTStorefront"
-import "NonFungibleToken"
 import "FungibleToken"
+import "NonFungibleToken"
 import "ExampleNFT"
-import "FlowToken"
+import "NFTStorefront"
+
 
 transaction {
+    let paymentVault: @{FungibleToken.Vault}
+    let exampleNFTCollection: &ExampleNFT.Collection
     let storefront: auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront
-    let exampleNFTProvider: Capability<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>
-    let tokenReceiver: Capability<&{FungibleToken.Receiver}>
+    let listing: &{NFTStorefront.ListingPublic}
 
-    prepare(signer: auth(Storage, Capabilities) &Account) {
-        // Ensure the storefront exists
-        if signer.storage.borrow<&NFTStorefront.Storefront>(from: NFTStorefront.StorefrontStoragePath) != nil {
-            let oldStorefront <- signer.storage.load<@NFTStorefront.Storefront>(
-                from: NFTStorefront.StorefrontStoragePath
-            ) ?? panic("Failed to load existing storefront resource for deletion.")
-            destroy oldStorefront
-        }
+     prepare(acct: auth(Storage, Capabilities, NFTStorefront.CreateListing) &Account) {
 
-        let newStorefront <- NFTStorefront.createStorefront()
-        signer.storage.save(<-newStorefront, to: NFTStorefront.StorefrontStoragePath)
+        // Create and save the storefront
+        let storefront <- NFTStorefront.createStorefront()
+        acct.storage.save(<-storefront, to: NFTStorefront.StorefrontStoragePath)
 
-        let privateStorefrontCap = signer.capabilities.storage.issue<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
+        // Publish the storefront capability to the public path
+        let storefrontCap = acct.capabilities.storage.issue<&{NFTStorefront.StorefrontPublic}>(
             NFTStorefront.StorefrontStoragePath
         )
-        self.storefront = privateStorefrontCap.borrow()
-            ?? panic("Cannot borrow storefront with the correct auth capability.")
+        acct.capabilities.publish(storefrontCap, at: NFTStorefront.StorefrontPublicPath)
 
-        // Ensure the ExampleNFT collection resource exists
-        if signer.storage.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) == nil {
-            panic("The ExampleNFT collection resource is missing at the expected storage path.")
-        }
+        // Borrow the storefront reference using the public capability path
+        let storefrontRef = acct.capabilities.borrow<&{NFTStorefront.StorefrontPublic}>(
+            NFTStorefront.StorefrontPublicPath
+        ) ?? panic("Could not borrow Storefront from provided address")
+        // Borrow the storefront reference directly from storage
+        self.storefront = acct.storage.borrow<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
+            from: NFTStorefront.StorefrontStoragePath
+        ) ?? panic("Could not borrow Storefront with CreateListing authorization from storage")
 
-        // Issue and publish ExampleNFT capability
-        if signer.capabilities.get<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
-            ExampleNFT.CollectionPublicPath
-        ) == nil {
-            let nftCap = signer.capabilities.storage.issue<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
-                ExampleNFT.CollectionStoragePath
-            )
-            signer.capabilities.publish(nftCap, at: ExampleNFT.CollectionPublicPath)
-        }
+        // Borrow the NFTMinter from the caller's storage
+        let minter = acct.storage.borrow<&ExampleNFT.NFTMinter>(
+            from: /storage/exampleNFTMinter
+        ) ?? panic("Could not borrow the NFT minter reference.")
 
-        self.exampleNFTProvider = signer.capabilities.get<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
-            ExampleNFT.CollectionPublicPath
+        // Mint a new NFT with metadata
+        let nft <- minter.mintNFT(
+            name: "Example NFT",
+            description: "Minting a sample NFT",
+            thumbnail: "https://example.com/thumbnail.png",
+            royalties: [],
+            metadata: {
+                "Power": "100",
+                "Will": "Strong",
+                "Determination": "Unyielding"
+            },
+            
         )
 
-        // Ensure FlowToken vault exists
-        if signer.storage.borrow<&{FungibleToken.Receiver}>(from: /storage/flowTokenVault) == nil {
-            let newVault <- FlowToken.createEmptyVault(vaultType: Type<@FlowToken.Vault>())
-            signer.storage.save(<-newVault, to: /storage/flowTokenVault)
-        }
+        let nftID = nft.id
 
-        // Publish FlowToken receiver capability if not available
-        if signer.capabilities.get<&{FungibleToken.Receiver}>(
-            /public/flowTokenReceiver
-        ) == nil {
-            let receiverCap = signer.capabilities.storage.issue<&{FungibleToken.Receiver}>(
-                /storage/flowTokenVault
-            )
-            signer.capabilities.publish(receiverCap, at: /public/flowTokenReceiver)
-        }
+        // Borrow the collection from the caller's storage
+        let collection = acct.storage.borrow<&ExampleNFT.Collection>(
+            from: /storage/exampleNFTCollection
+        ) ?? panic("Could not borrow the NFT collection reference.")
 
-        self.tokenReceiver = signer.capabilities.get<&{FungibleToken.Receiver}>(
-            /public/flowTokenReceiver
+        // Deposit the newly minted NFT into the caller's collection
+        collection.deposit(token: <-nft)
+
+
+        let nftProviderCapability = acct.capabilities.storage.issue<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
+            /storage/exampleNFTCollection
         )
-    }
-
-    execute {
-        let receiverRef = self.tokenReceiver.borrow()
-            ?? panic("Cannot borrow FlowToken receiver capability.")
-
-        let saleCut = NFTStorefront.SaleCut(
-            receiver: self.tokenReceiver,
-            amount: 10.0
-        )
-
-        log(self.exampleNFTProvider)
-
-        let listingID = self.storefront.createListing(
-            nftProviderCapability: self.exampleNFTProvider,
+        
+        // List the NFT
+        self.storefront.createListing(
+            nftProviderCapability: nftProviderCapability,
             nftType: Type<@ExampleNFT.NFT>(),
-            nftID: 1,
-            salePaymentVaultType: Type<@FlowToken.Vault>(),
-            saleCuts: [saleCut]
+            nftID: nftID,
+            salePaymentVaultType: Type<@{FungibleToken.Vault}>(),
+            saleCuts: [
+                NFTStorefront.SaleCut(
+                    receiver: acct.capabilities.get<&{FungibleToken.Receiver}>(
+                        /public/flowTokenReceiver
+                    )!,
+                    amount: 1.0
+                )
+            ]
         )
-
-        log("Storefront listing created with ID: ".concat(listingID.toString()))
+        log("Listing created successfully")
     }
 }
