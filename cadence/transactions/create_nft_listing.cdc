@@ -78,7 +78,7 @@ transaction {
             marketplacesCapability: nil,
             customID: nil,   
             commissionAmount: 0.0,     
-            expiry: UInt64(getCurrentBlock().timestamp + 60 * 60 * 24)
+            expiry: UInt64(getCurrentBlock().timestamp + UFix64(60 * 60 * 24))
         )
         log("Listing created successfully")
     }
