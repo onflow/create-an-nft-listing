@@ -74,7 +74,10 @@ transaction {
                     )!,
                     amount: 1.0
                 )
-            ]
+            ],
+            marketplacesCapability: nil,
+            commissionAmount: 0.0,     
+            expiry: UInt64(getCurrentBlock().timestamp + 60 * 60 * 24)
         )
         log("Listing created successfully")
     }
