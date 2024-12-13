@@ -76,6 +76,7 @@ transaction {
                 )
             ],
             marketplacesCapability: nil,
+            customID: nil,   
             commissionAmount: 0.0,     
             expiry: UInt64(getCurrentBlock().timestamp + 60 * 60 * 24)
         )
