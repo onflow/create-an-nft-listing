@@ -1,30 +1,30 @@
 import "FungibleToken"
 import "NonFungibleToken"
 import "ExampleNFT"
-import "NFTStorefront"
+import "NFTStorefrontV2"
 
 transaction {
-    let storefront: auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront
+    let storefront: auth(NFTStorefrontV2.CreateListing) &NFTStorefrontV2.Storefront
 
-     prepare(acct: auth(Storage, Capabilities, NFTStorefront.CreateListing) &Account) {
+     prepare(acct: auth(Storage, Capabilities, NFTStorefrontV2.CreateListing) &Account) {
 
         // Create and save the storefront
-        let storefront <- NFTStorefront.createStorefront()
-        acct.storage.save(<-storefront, to: NFTStorefront.StorefrontStoragePath)
+        let storefront <- NFTStorefrontV2.createStorefront()
+        acct.storage.save(<-storefront, to: NFTStorefrontV2.StorefrontStoragePath)
 
         // Publish the storefront capability to the public path
-        let storefrontCap = acct.capabilities.storage.issue<&{NFTStorefront.StorefrontPublic}>(
-            NFTStorefront.StorefrontStoragePath
+        let storefrontCap = acct.capabilities.storage.issue<&{NFTStorefrontV2.StorefrontPublic}>(
+            NFTStorefrontV2.StorefrontStoragePath
         )
-        acct.capabilities.publish(storefrontCap, at: NFTStorefront.StorefrontPublicPath)
+        acct.capabilities.publish(storefrontCap, at: NFTStorefrontV2.StorefrontPublicPath)
 
         // Borrow the storefront reference using the public capability path
-        let storefrontRef = acct.capabilities.borrow<&{NFTStorefront.StorefrontPublic}>(
-            NFTStorefront.StorefrontPublicPath
+        let storefrontRef = acct.capabilities.borrow<&{NFTStorefrontV2.StorefrontPublic}>(
+            NFTStorefrontV2.StorefrontPublicPath
         ) ?? panic("Could not borrow Storefront from provided address")
         // Borrow the storefront reference directly from storage
-        self.storefront = acct.storage.borrow<auth(NFTStorefront.CreateListing) &NFTStorefront.Storefront>(
-            from: NFTStorefront.StorefrontStoragePath
+        self.storefront = acct.storage.borrow<auth(NFTStorefrontV2.CreateListing) &NFTStorefrontV2.Storefront>(
+            from: NFTStorefrontV2.StorefrontStoragePath
         ) ?? panic("Could not borrow Storefront with CreateListing authorization from storage")
 
         // Borrow the NFTMinter from the caller's storage
@@ -68,7 +68,7 @@ transaction {
             nftID: nftID,
             salePaymentVaultType: Type<@{FungibleToken.Vault}>(),
             saleCuts: [
-                NFTStorefront.SaleCut(
+                NFTStorefrontV2.SaleCut(
                     receiver: acct.capabilities.get<&{FungibleToken.Receiver}>(
                         /public/flowTokenReceiver
                     )!,
