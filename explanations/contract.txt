@@ -1,11 +1,5 @@
-When creating an NFT listing it will need a few parameters passed in, in order to make the listing go through.
+When creating an NFT listing, you need to provide several key parameters to ensure the listing is properly set up and functions as intended. First, you must pass a capability that allows the storefront to withdraw the NFT when it is sold. This capability should be securely linked to your private storage path to prevent unauthorized access to your account's NFTs. Additionally, you need to specify the type of NFT being listed and its unique NFT ID. The listing also requires a payment vault type, which specifies the cryptocurrency or fungible token that will be used for the purchase.
 
-First you will need to pass in a capability to the NFT that allows us to withdraw the NFT when it is being sold to the purchaser. Remember to link the capability in your private storage path as you do not want anyone to be able to withdraw any NFT from your account!
+A crucial part of the setup is defining the SaleCut structure, which determines how the payment is divided among recipients. For example, you might include a marketplace fee as one sale cut and allocate the remaining amount to the seller. Multiple sale cuts can be configured to accommodate complex payment arrangements. You will also need to provide the storefront ID where the listing will reside, as each account has a single storefront managing all its listings.
 
-You'll also need to pass in the type of NFT that is being sold, as well as the NFT ID that is being sold. Afterwards you pass in the payment vault type for whichever crypto currency users will be purchasing the listing in.
-
-You'll also include a struct called SaleCut. These Sales Cuts will determine the total price of your item. Let's say you want to have a marketplace fee implemented in your transaction. You would include a sales cut struct that would be passed in, as well as a sales cut that will go to the seller of the item. You can check out the example for multiple sales cuts to see how this would be implemented.
-
-Lastly you would pass in the storefrontID which is the ID of your storefront containing the listing. Once all of this information is passed in, you have created a listing in your Storefront.
-
-Afterwards you would link the public capability to the ListingPublic interface so that anyone can call the purchase function and buy your NFT.
+Once these parameters are provided, the listing is created and becomes part of your storefront. To make it accessible for potential buyers, link the listing's public capability to the ListingPublic interface, allowing others to call the purchase function and complete the transaction.
